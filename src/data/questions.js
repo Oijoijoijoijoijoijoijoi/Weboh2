@@ -20,16 +20,17 @@ const questions = [
   },
   {
     id: 3,
-    question: "Node.js Basics",
-    answer: ""
-
-  },
-  {
-    id: 4,
-    question: "Introduction to Databases",
-    answer: ""
+    question: "If it's not x, is it y - and honestly? That's powerful.",
+        options: [
+      "AI slop",
+      "powerful",
+      "x",
+      "y"
+    ],
+    answer: "AI slop"
 
   }
+
 ];
 
 module.exports = questions;

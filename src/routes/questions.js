@@ -12,93 +12,91 @@ router.get("/", (req, res) => {
     return res.json(questions);
   }
 
-  const filteredPosts = questions.filter(post =>
-    post.keywords.includes(keyword.toLowerCase())
+  const filteredQuestions = questions.filter(item =>
+    item.question.toLowerCase().includes(keyword.toLowerCase())
   );
 
-  res.json(filteredPosts);
+  res.json(filteredQuestions);
 });
 
 
-// GET /questions/:postId
-// Show a specific post
-router.get("/:postId", (req, res) => {
-  const postId = Number(req.params.postId);
+// GET /questions/:questionId
+// Show a specific question
+router.get("/:questionId", (req, res) => {
+  const questionId = Number(req.params.questionId);
 
-  const post = questions.find((p) => p.id === postId);
+  const question = questions.find((p) => p.id === questionId);
 
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+  if (!question) {
+    return res.status(404).json({ message: "Question not found" });
   }
 
-  res.json(post);
+  res.json(question);
 });
 
 // POST /questions
-// Create a new post
+// Create a new question
 router.post("/", (req, res) => {
-  const { title, date, content, keywords } = req.body;
+  const { question, options, answer } = req.body;
 
-  if (!title || !date || !content) {
+  if (!question || !options || !answer) {
     return res.status(400).json({
-      message: "title, date, and content are required"
+      message: "question, options, and answer are required"
     });
   }
   const maxId = Math.max(...questions.map(p => p.id), 0);
 
-  const newPost = {
+  const newQuestion = {
     id: questions.length ? maxId + 1 : 1,
-    title, date, content,
-    keywords: Array.isArray(keywords) ? keywords : []
+    question, options, answer,
   };
-  questions.push(newPost);
-  res.status(201).json(newPost);
+  questions.push(newQuestion);
+  res.status(201).json(newQuestion);
 });
 
 
-// PUT /questions/:postId
-// Edit a post
-router.put("/:postId", (req, res) => {
-  const postId = Number(req.params.postId);
-  const { title, date, content, keywords } = req.body;
+// PUT /questions/:questionId
+// Edit a question
+router.put("/:questionId", (req, res) => {
+  const questionId = Number(req.params.questionId);
+  const { question, options, answer } = req.body;
 
-  const post = questions.find((p) => p.id === postId);
+  const currentQuestion = questions.find((p) => p.id === questionId);
 
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+  if (!currentQuestion) {
+    return res.status(404).json({ message: "Question not found" });
   }
 
-  if (!title || !date || !content) {
+  if (!currentQuestion || !options || !answer) {
     return res.json({
-      message: "title, date, and content are required"
+      message: "question, options, and answer are required"
     });
   }
 
-  post.title = title;
-  post.date = date;
-  post.content = content;
-  post.keywords = Array.isArray(keywords) ? keywords : [];
+  currentQuestion.question = question;
+  currentQuestion.options = options;
+  currentQuestion.answer = answer;
 
-  res.json(post);
+  res.json(currentQuestion);
 });
 
 
-// DELETE /questions/:postId
-// Delete a post
-router.delete("/:postId", (req, res) => {
-  const postId = Number(req.params.postId);
+// DELETE /questions/:questionId
+// Delete a question
+router.delete("/:questionId", (req, res) => {
+  const questionId = Number(req.params.questionId);
 
-  const postIndex = questions.findIndex((p) => p.id === postId);
+  const postIndex = questions.findIndex((p) => p.id === questionId);
 
   if (postIndex === -1) {
-    return res.status(404).json({ message: "Post not found" });
+    return res.status(404).json({ message: "Question not found" });
   }
 
   const deletedPost = questions.splice(postIndex, 1);
 
   res.json({
-    message: "Post deleted successfully",
-    post: deletedPost[0]
+    message: "Question deleted successfully",
+    question: deletedPost[0]
   });
 });
 
