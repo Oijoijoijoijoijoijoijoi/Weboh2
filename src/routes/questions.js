@@ -86,17 +86,17 @@ router.put("/:questionId", (req, res) => {
 router.delete("/:questionId", (req, res) => {
   const questionId = Number(req.params.questionId);
 
-  const postIndex = questions.findIndex((p) => p.id === questionId);
+  const questionIndex = questions.findIndex((p) => p.id === questionId);
 
-  if (postIndex === -1) {
+  if (questionIndex === -1) {
     return res.status(404).json({ message: "Question not found" });
   }
 
-  const deletedPost = questions.splice(postIndex, 1);
+  const deleteQuestion = questions.splice(questionIndex, 1);
 
   res.json({
     message: "Question deleted successfully",
-    question: deletedPost[0]
+    question: deleteQuestion[0]
   });
 });
 
