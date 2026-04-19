@@ -20,10 +20,10 @@ router.get("/", (req, res) => {
 });
 
 
-// GET /questions/:questionId
+// GET /questions/:qId
 // Show a specific question
-router.get("/:questionId", (req, res) => {
-  const questionId = Number(req.params.questionId);
+router.get("/:qId", (req, res) => {
+  const questionId = Number(req.params.qId);
 
   const question = questions.find((p) => p.id === questionId);
 
@@ -55,10 +55,10 @@ router.post("/", (req, res) => {
 });
 
 
-// PUT /questions/:questionId
+// PUT /questions/:qId
 // Edit a question
-router.put("/:questionId", (req, res) => {
-  const questionId = Number(req.params.questionId);
+router.put("/:qId", (req, res) => {
+  const questionId = Number(req.params.qId);
   const { question, options, answer } = req.body;
 
   const currentQuestion = questions.find((p) => p.id === questionId);
@@ -81,10 +81,10 @@ router.put("/:questionId", (req, res) => {
 });
 
 
-// DELETE /questions/:questionId
+// DELETE /questions/:qId
 // Delete a question
-router.delete("/:questionId", (req, res) => {
-  const questionId = Number(req.params.questionId);
+router.delete("/:qId", (req, res) => {
+  const questionId = Number(req.params.qId);
 
   const questionIndex = questions.findIndex((p) => p.id === questionId);
 
