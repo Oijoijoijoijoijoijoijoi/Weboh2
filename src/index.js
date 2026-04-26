@@ -2,10 +2,11 @@ const express = require("express");
 const app = express();
 
 const questionsRouter = require("./routes/questions"); 
+const authRouter = require("./routes/auth");
 const prisma = require("./lib/prisma");
 
 app.use(express.json());
-
+app.use("/api/auth", authRouter);
 // everything under /api/questions
 app.use("/api/questions", questionsRouter);
 
