@@ -3,14 +3,40 @@ const router = express.Router();
 const prisma = require("../lib/prisma");
 const authenticate = require("../middleware/auth");
 const isOwner = require("../middleware/isOwner");
-
 router.use(authenticate);
+const path = require("path");
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: path.join(__dirname, "..", "..", "public", "uploads"),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+
 
 function formatQuestion(question) {
   return {
     ...question,
     date: question.date?.toISOString().split("T")[0],
-    keywords: question.keywords ? question.keywords.map((k) => k.name) : [],
+    keywords: question.keywords ? question.keywords.map((k) => k.name) : [],  
+    userName: question.user?.name || null,
+    attemptCount: question._count?.attempts ?? 0,
+    solved: question.attempts ? question.attempts.length > 0 : false,
+    user: undefined,
+    attempts: undefined,
+    _count: undefined,
   };
 }
 
@@ -21,17 +47,39 @@ function formatQuestion(question) {
 router.get("/", async (req, res) => {
   const { keyword } = req.query;
 
+
   const where = keyword
     ? { keywords: { some: { name: keyword } } }
     : {};
 
-  const questions = await prisma.question.findMany({
-    where,
-    include: { keywords: true },
-    orderBy: { id: "asc" },
-  });
 
-  res.json(questions.map(formatQuestion));
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 5));  
+  const skip = (page-1) * limit;
+
+const [filteredQuestions, total] = await Promise.all([
+    prisma.question.findMany({
+        where,
+        include: {
+          keywords: true,
+          user: true,
+          attempts: { where: { userId: req.user.userId, isCorrect: true }, take: 1 },
+          _count: { select: { attempts: true } },
+        },
+        orderBy: { id: "asc" },
+        skip,
+        take: limit,
+    }),
+    prisma.question.count({ where }),
+]);
+  res.json({
+    data: filteredQuestions.map(formatQuestion),
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+});
+
 });
 
 
@@ -41,7 +89,12 @@ router.get("/:qId", async (req, res) => {
   const qId = Number(req.params.qId);
   const question = await prisma.question.findUnique({
     where: { id: qId },
-    include: { keywords: true },
+    include: {
+        keywords: true,
+        user: true,
+        attempts: {where: { userId: req.user.userId, isCorrect: true }, take: 1 },
+        _count: { select: { attempts: true } },
+        },
   });
 
   if (!question) {
@@ -55,23 +108,25 @@ router.get("/:qId", async (req, res) => {
 
 // POST /questions
 // Create a new question
-router.post("/", async (req, res) => {
+router.post("/", upload.single("image"), async (req, res) => {
   const { question, options, answer, keywords } = req.body;
 
-  if (!question || !options || !answer) {
+  if (!question || !answer) {
     return res.status(400).json({ 
-      message: "question, options, and answer are mandatory" 
+      message: "question and answer are mandatory" 
     });
   }
 
   const keywordsArray = Array.isArray(keywords) ? keywords : [];
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
   const newQuestion = await prisma.question.create({
     data: {
       question,
       userId: req.user.userId,
-      options,
+      date: new Date(),
       answer,
+      imageUrl,
       keywords: {
         connectOrCreate: keywordsArray.map((kw) => ({
           where: { name: kw }, 
@@ -79,7 +134,7 @@ router.post("/", async (req, res) => {
         })),
       },
     },
-    include: { keywords: true },
+    include: { keywords: true, user: true },
   });
 
   res.status(201).json(formatQuestion(newQuestion));
@@ -87,7 +142,7 @@ router.post("/", async (req, res) => {
 
 // PUT /questions/:qId
 // Edit a question
-router.put("/:qId", isOwner, async (req, res) => {
+router.put("/:qId", upload.single("image"), isOwner, async (req, res) => {
   const qId = Number(req.params.qId);
   const { question, options, answer, keywords } = req.body;
 
@@ -95,9 +150,9 @@ router.put("/:qId", isOwner, async (req, res) => {
     where: { id: qId } 
   });
 
-  if (!question || !options || !answer) {
+  if (!question || !answer) {
     return res.status(400).json({ 
-      message: "question, options, and answer are mandatory" 
+      message: "question and answer are mandatory" 
     });
   }
 
@@ -109,15 +164,16 @@ router.put("/:qId", isOwner, async (req, res) => {
       question,
       options,
       answer,
+      imageUrl,
       keywords: {
-        set: [], // Resets existing relations before reconnection
+        set: [], 
         connectOrCreate: keywordsArray.map((kw) => ({
           where: { name: kw },
           create: { name: kw },
         })),
       },
     },
-    include: { keywords: true },
+    include: { keywords: true, user: true },
   });
 
   res.json(formatQuestion(updatedQuestion));
@@ -131,7 +187,7 @@ router.delete("/:qId", isOwner, async (req, res) => {
 
   const question = await prisma.question.findUnique({
     where: { id: qId },
-    include: { keywords: true },
+    include: { keywords: true, user: true },
   });
 
 
@@ -143,6 +199,39 @@ router.delete("/:qId", isOwner, async (req, res) => {
     question: formatQuestion(question),
   });
 });
+
+
+
+
+// POST /api/questions/:qId/play
+router.post("/:qId/play", async (req, res) => {
+  const qId = Number(req.params.qId);
+  const { answer: userGuess } = req.body; 
+  let isCorrect = false;
+  const question = await prisma.question.findUnique({ where: { id: qId } });
+  if (!question) return res.status(404).json({ message: "Question not found" });
+
+  if(question.answer == userGuess) {
+    isCorrect = true;
+  }
+
+  const attempt = await prisma.attempt.create({
+    data: {
+      userId: req.user.userId,
+      questionId: qId,
+      isCorrect: isCorrect, 
+    },
+  });
+
+  res.status(201).json({
+    id: attempt.id,
+    correct: isCorrect, 
+    submittedAnswer: userGuess,
+    correctAnswer: question.answer,
+    createdAt: attempt.createdAt 
+  });
+});
+
 
 
 
