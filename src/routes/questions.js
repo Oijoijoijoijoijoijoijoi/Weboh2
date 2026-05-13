@@ -6,6 +6,17 @@ const isOwner = require("../middleware/isOwner");
 router.use(authenticate);
 const path = require("path");
 const multer = require("multer");
+const { ValidationError, NotFoundError } = require("../lib/errors");
+
+const { z } = require("zod");
+
+const QuestionInput = z.object({
+  question: z.string().min(1),
+  answer: z.string().min(1),
+  date: z.string().date(),
+  options: z.array(z.string()).optional().default([]),
+  keywords: z.union([z.string(), z.array(z.string())]).optional(),
+});
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, "..", "..", "public", "uploads"),
@@ -23,6 +34,7 @@ const upload = multer({
   },
   limits: { fileSize: 5 * 1024 * 1024 },
 });
+
 
 
 
@@ -98,9 +110,9 @@ router.get("/:qId", async (req, res) => {
   });
 
   if (!question) {
-    return res.status(404).json({ 
-      message: "Question not found" 
-    });
+    req.log.warn({ qId }, "user tried to access nonexistent question");
+    throw new NotFoundError("Question not found");
+
   }
 
   res.json(formatQuestion(question));
@@ -109,13 +121,8 @@ router.get("/:qId", async (req, res) => {
 // POST /questions
 // Create a new question
 router.post("/", upload.single("image"), async (req, res) => {
-  const { question, options, answer, keywords } = req.body;
+  const { question, options, answer, keywords }  = QuestionInput.parse(req.body);
 
-  if (!question || !answer) {
-    return res.status(400).json({ 
-      message: "question and answer are mandatory" 
-    });
-  }
 
   const keywordsArray = Array.isArray(keywords) ? keywords : [];
   const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -144,17 +151,18 @@ router.post("/", upload.single("image"), async (req, res) => {
 // Edit a question
 router.put("/:qId", upload.single("image"), isOwner, async (req, res) => {
   const qId = Number(req.params.qId);
-  const { question, options, answer, keywords } = req.body;
+  const { question, options, answer, keywords }  = QuestionInput.parse(req.body);
 
   const existingQuestion = await prisma.question.findUnique({ 
     where: { id: qId } 
   });
 
-  if (!question || !answer) {
-    return res.status(400).json({ 
-      message: "question and answer are mandatory" 
-    });
+  if (!existingQuestion) {
+    req.log.warn({ qId }, "user tried to access nonexistent question");
+    throw new NotFoundError("Question not found");
+
   }
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : existingQuestion.imageUrl;
 
   const keywordsArray = Array.isArray(keywords) ? keywords : [];
   
@@ -190,7 +198,10 @@ router.delete("/:qId", isOwner, async (req, res) => {
     include: { keywords: true, user: true },
   });
 
-
+  if (!question) {
+    req.log.warn({ qId }, "user tried to access nonexistent question");
+    throw new NotFoundError("Question not found");
+  }
 
   await prisma.question.delete({ where: { id: qId } });
 
@@ -209,7 +220,10 @@ router.post("/:qId/play", async (req, res) => {
   const { answer: userGuess } = req.body; 
   let isCorrect = false;
   const question = await prisma.question.findUnique({ where: { id: qId } });
-  if (!question) return res.status(404).json({ message: "Question not found" });
+  if (!question) {
+    req.log.warn({ qId }, "user tried to access nonexistent question");
+    throw new NotFoundError("Question not found");
+  }
 
   if(question.answer == userGuess) {
     isCorrect = true;
@@ -233,6 +247,11 @@ router.post("/:qId/play", async (req, res) => {
 });
 
 
-
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError || err?.message === "Only image files are allowed") {
+    return res.status(400).json({ message: err.message });
+  }
+  next(err); 
+});
 
 module.exports = router;

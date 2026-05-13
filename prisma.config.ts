@@ -4,7 +4,11 @@
 import { defineConfig, env } from "@prisma/config";
 import * as dotenv from "dotenv";
 import dotenvExpand from "dotenv-expand"; 
-const myEnv = dotenv.config();
+
+
+const envPath = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
+
+const myEnv = dotenv.config({ path: envPath, override: true });
 dotenvExpand.expand(myEnv);
 
 export default defineConfig({
