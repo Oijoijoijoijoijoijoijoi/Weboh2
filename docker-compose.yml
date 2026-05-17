@@ -1,5 +1,5 @@
 services:
-  mysql-db:
+  db:
     image: mysql:latest
     container_name: prisma-mysql-cms
     restart: always
@@ -12,6 +12,27 @@ services:
       - "${HOST_DB_PORT}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/public/uploads
+
+
 
 volumes:
   mysql_data:
+  uploads:
