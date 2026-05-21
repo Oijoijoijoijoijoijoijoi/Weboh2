@@ -13,7 +13,7 @@ const { z } = require("zod");
 const QuestionInput = z.object({
   question: z.string().min(1),
   answer: z.string().min(1),
-  date: z.string().date(),
+  date: z.string().date().default(() => new Date().toISOString().split("T")[0]),
   options: z.array(z.string()).optional().default([]),
   keywords: z.union([z.string(), z.array(z.string())]).optional(),
 });
