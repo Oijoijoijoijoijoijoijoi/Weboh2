@@ -6,7 +6,7 @@ import * as dotenv from "dotenv";
 import dotenvExpand from "dotenv-expand"; 
 
 
-const envPath = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
+const envPath = ".env";
 
 const myEnv = dotenv.config({ path: envPath, override: true });
 dotenvExpand.expand(myEnv);
