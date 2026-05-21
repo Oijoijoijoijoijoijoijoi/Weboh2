@@ -1,9 +1,9 @@
 const CONFIG = {
   API_URL: "https://weboh2-production.up.railway.app", // Defined base URL for fetch/axios
   ROUTES: {
-    LOGIN: "/api/auth/login",
-    REGISTER: "/api/auth/register",
-    QUESTIONS: "/api/questions",
+    LOGIN: "api/auth/login",
+    REGISTER: "api/auth/register",
+    QUESTIONS: "api/questions",
   },
   FIELDS: {
     LOGIN: ["email", "password"],
