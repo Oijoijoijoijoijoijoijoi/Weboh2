@@ -25,6 +25,17 @@ function removeToken() {
   localStorage.removeItem(CONFIG.STORAGE_KEY);
 }
 
+function getUserData() {
+  const token = getToken();
+  if (!token) return { userId: null, role: null };
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return { userId: payload.userId, role: payload.role };
+  } catch {
+    return { userId: null, role: null };
+  }
+}
+
 async function apiFetch(route, options = {}) {
   const token = getToken();
   const isFormData = options.body instanceof FormData;
@@ -111,8 +122,14 @@ async function showApp() {
   document.getElementById("auth-section").style.display = "none";
   document.getElementById("app-section").style.display = "block";
   document.getElementById("logout-btn").style.display = "inline-block";
+  const { role } = getUserData();
+  const roleDisplay = document.getElementById("user-role-display");
+  if (roleDisplay) {
+    roleDisplay.textContent = role ? `Role: ${role.toUpperCase()}` : "";
+  }
   await loadQuestions();
 }
+
 
 async function loadQuestions(keyword = "", page = 1) {
   const container = document.getElementById("questions-container");

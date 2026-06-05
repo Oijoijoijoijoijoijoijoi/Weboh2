@@ -6,9 +6,22 @@ const isOwner = require("../middleware/isOwner");
 router.use(authenticate);
 const path = require("path");
 const multer = require("multer");
-const { ValidationError, NotFoundError } = require("../lib/errors");
+const { ValidationError, NotFoundError, ForbiddenError } = require("../lib/errors");
 
 const { z } = require("zod");
+
+const checkAccess = (user, question) => {
+  if (user.role === 'ADMIN') return;
+  
+  if (!question.userId) {
+    if (user.role === 'EDITOR') return;
+  } else {
+    if (user.role === 'EDITOR' && question.userId === user.userId) return;
+  }
+
+  throw new ForbiddenError("Access denied");
+};
+
 
 const QuestionInput = z.object({
   question: z.string().min(1),
@@ -51,6 +64,8 @@ function formatQuestion(question) {
     _count: undefined,
   };
 }
+
+
 
 
 
@@ -127,6 +142,8 @@ router.post("/", upload.single("image"), async (req, res) => {
   const keywordsArray = Array.isArray(keywords) ? keywords : [];
   const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
+  checkAccess(req.user, question); //admin, editor, player check
+
   const newQuestion = await prisma.question.create({
     data: {
       question,
@@ -152,10 +169,12 @@ router.post("/", upload.single("image"), async (req, res) => {
 router.put("/:qId", upload.single("image"), isOwner, async (req, res) => {
   const qId = Number(req.params.qId);
   const { question, options, answer, keywords }  = QuestionInput.parse(req.body);
-
+  
   const existingQuestion = await prisma.question.findUnique({ 
     where: { id: qId } 
   });
+
+  checkAccess(req.user, question); //admin, editor, player check
 
   if (!existingQuestion) {
     req.log.warn({ qId }, "user tried to access nonexistent question");
@@ -197,7 +216,7 @@ router.delete("/:qId", isOwner, async (req, res) => {
     where: { id: qId },
     include: { keywords: true, user: true },
   });
-
+  checkAccess(req.user, question); //admin, editor, player check
   if (!question) {
     req.log.warn({ qId }, "user tried to access nonexistent question");
     throw new NotFoundError("Question not found");

@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
+const authenticate = require("../middleware/auth");
 
 
 const SECRET = process.env.JWT_SECRET;
@@ -20,7 +21,7 @@ router.post("/register", async (req, res) => {
   
   const hashed = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({ data: { email, password: hashed, name }});
-  const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ userId: user.id,  role: user.role }, SECRET, { expiresIn: "1h" });
   
   res.status(201).json({ message: "User registered successfully", token });
 });
@@ -42,11 +43,13 @@ router.post("/login", async (req, res) => {
     throw new ForbiddenError("Invalid credentials");
   }
   
-  const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ userId: user.id, role: user.role }, SECRET, { expiresIn: "1h" });
   res.json({ token });
 });
 
-
+router.get("/me", authenticate, (req, res) => {
+  res.json({ userId: req.user.userId, role: req.user.role });
+});
 
 
 module.exports = router; // This should be the last line

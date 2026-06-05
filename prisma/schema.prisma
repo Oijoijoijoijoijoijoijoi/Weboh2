@@ -13,11 +13,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+
+enum Role {
+  ADMIN
+  EDITOR
+  PLAYER
+}
+
 model User {
   id       Int    @id @default(autoincrement())
   email    String @unique @db.VarChar(255)
   password String @db.VarChar(255)
   name     String @db.VarChar(100)
+  role      Role     @default(PLAYER)
   attempts Attempt[]
   questions    Question[]
   @@map("users")
